@@ -1,5 +1,6 @@
 """CLI interface for AI Learning Tutor."""
 import sys
+import io
 import click
 from rich.console import Console
 from rich.prompt import Prompt, Confirm
@@ -8,6 +9,11 @@ from rich.table import Table
 from .llm import LLMClient
 from .core import MapPhase, LearnPhase, QuizPhase
 from .state import SessionManager
+
+# Fix Windows terminal encoding for Chinese characters
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 console = Console()
 
@@ -173,8 +179,8 @@ def _learning_loop(session, llm, session_manager):
         all_correct = False
         while not all_correct:
             for i, question in enumerate(chapter.quiz, 1):
-                if question.correct:
-                    continue  # Skip already correct answers
+                if question.correct and question.reasoning_sound:
+                    continue  # Skip already correct answers with sound reasoning
 
                 console.print(f"\n[bold]问题 {i}/{len(chapter.quiz)}：[/bold]")
                 console.print(question.question)
@@ -182,22 +188,72 @@ def _learning_loop(session, llm, session_manager):
 
                 user_answer = Prompt.ask("[yellow]你的答案[/yellow]")
 
-                correct, feedback, hint = quiz_phase.evaluate_answer(
+                eval_result = quiz_phase.evaluate_answer(
                     session, chapter.id, question.id, user_answer
                 )
 
-                if correct:
-                    console.print(f"\n[green]✅ {feedback}[/green]\n")
+                if eval_result["correct"]:
+                    # 答对了，但需要验证推理路径
+                    if eval_result.get("ask_reasoning"):
+                        console.print(f"\n[green]✅ 答案正确！[/green]")
+                        console.print(f"[yellow]{eval_result['ask_reasoning']}[/yellow]")
+                        reasoning = Prompt.ask("[dim]你的思路[/dim]")
+
+                        # 二次评估推理路径
+                        reasoning_eval = quiz_phase.llm.chat(
+                            messages=[{
+                                "role": "user",
+                                "content": f"""
+问题：{question.question}
+用户答案：{user_answer}
+用户解释的推理过程：{reasoning}
+
+判断：用户的推理路径是否正确？是真懂还是猜对的？
+
+输出 JSON：
+{{"reasoning_sound": true/false, "feedback": "..."}}
+"""
+                            }],
+                            temperature=0.3,
+                        )
+
+                        reasoning_data = quiz_phase._parse_evaluation(reasoning_eval)
+                        question.reasoning_sound = reasoning_data.get("reasoning_sound", True)
+                        session_manager.save(session)
+
+                        if reasoning_data.get("reasoning_sound"):
+                            console.print(f"\n[green]✅ {reasoning_data['feedback']}[/green]\n")
+                        else:
+                            console.print(f"\n[yellow]⚠️  {reasoning_data['feedback']}[/yellow]")
+                            console.print("[yellow]虽然答案对了，但推理有问题。建议重新思考。[/yellow]\n")
+                    else:
+                        console.print(f"\n[green]✅ {eval_result['feedback']}[/green]\n")
                 else:
-                    console.print(f"\n[red]❌ {feedback}[/red]")
-                    if hint:
-                        console.print(f"[yellow]💡 提示：{hint}[/yellow]\n")
+                    # 答错了
+                    console.print(f"\n[red]❌ {eval_result['feedback']}[/red]")
+                    if eval_result.get("hint"):
+                        console.print(f"[yellow]💡 提示：{eval_result['hint']}[/yellow]")
+
+                    # 如果有变式题，询问是否尝试
+                    if eval_result.get("variant_question"):
+                        console.print(f"\n[cyan]让我换个角度再问一遍，看你是否真正理解了：[/cyan]")
+                        console.print(f"\n{eval_result['variant_question']}\n")
+
+                        variant_answer = Prompt.ask("[yellow]你的答案[/yellow]")
+                        variant_eval = quiz_phase.evaluate_answer(
+                            session, chapter.id, question.id, variant_answer
+                        )
+
+                        if variant_eval["correct"]:
+                            console.print(f"\n[green]✅ 这次对了！{variant_eval['feedback']}[/green]\n")
+                        else:
+                            console.print(f"\n[red]还是有问题。{variant_eval['feedback']}[/red]\n")
 
             # Check if all passed
             all_correct = quiz_phase.check_chapter_passed(session, chapter.id)
 
             if not all_correct:
-                if not Confirm.ask("\n[yellow]有题目答错了，要重新作答吗？[/yellow]"):
+                if not Confirm.ask("\n[yellow]有题目答错了或推理不清晰，要重新作答吗？[/yellow]"):
                     console.print("[yellow]学习已暂停。使用 'ai-tutor resume' 继续。[/yellow]")
                     return
 
