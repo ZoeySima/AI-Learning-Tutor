@@ -2,6 +2,43 @@
 
 An AI-powered personalized learning assistant based on Claude, helping you quickly build "conceptual understanding" of unfamiliar domains.
 
+## ✨ What's New in v0.2.0
+
+**v0.2.0 brings 6 major improvements based on learning science principles**:
+
+### 🎯 Smart Verification - No More "Fake Understanding"
+- **Reasoning path validation**: Checks not just if your answer is correct, but if your thinking process is sound
+- **Variant questions**: Generates alternative scenarios when you answer incorrectly to verify true understanding
+- **Attempt tracking**: Records quiz history for each question
+
+### 🔍 Fact-Checking - Ensuring Accuracy
+- **Critical domain detection**: Finance, medical, legal topics automatically trigger dual-model verification
+- **Auto-correction**: Regenerates content when factual errors are detected
+- **Disclaimer injection**: Adds appropriate warnings for sensitive content
+
+### 📋 Diagnostic Pretest - True Personalization
+- **Prior knowledge assessment**: 3-5 diagnostic questions before generating the learning map
+- **Adaptive depth**: Automatically adjusts chapter difficulty based on pretest results
+- **Precise targeting**: AI analyzes your knowledge gaps and recommends focus areas
+
+### 📊 Structured Notes - Building Learning Assets
+- **Knowledge graphs**: Mermaid diagrams showing concept relationships
+- **Collapsible sections**: Full content hidden by default, expandable on demand
+- **Mastery tracking**: Visual progress bars + weak point analysis
+- **Comparison tables**: Three perspectives side-by-side
+
+### 🔄 Spaced Repetition - Combat Forgetting
+- **Spiral review**: Automatically reviews chapters N-1 and N-3 before new content
+- **Flashcard generation**: AI creates quick review questions
+- **Scientific memory**: Based on Ebbinghaus forgetting curve
+
+### 🎨 Visual Learning - Reduce Cognitive Load
+- **ASCII diagrams**: Flow charts, tree structures, comparison tables
+- **Progress visualization**: Chapter tree + completion status
+- **Visual hierarchy**: Icons, colors, enhanced formatting
+
+---
+
 ## Core Methodology
 
 This tool implements a proven 4-step AI learning method:
@@ -13,9 +50,10 @@ This tool implements a proven 4-step AI learning method:
 
 ## Why It Works
 
-- **Personalized**: Adjusts explanation granularity based on your background
-- **Active Validation**: Not passive reading, but exposing blind spots through quizzes
-- **Structured Memory**: Build the map first, then fill in details—new knowledge has hooks
+- **Personalized**: Diagnostic pretest + adjusts explanation based on your background
+- **Active Validation**: Reasoning verification + variant questions expose blind spots
+- **Structured Memory**: Build map first + spaced repetition for consolidation
+- **Trust Foundation**: Fact-checking for critical domains ensures accuracy
 
 ## Quick Start
 
@@ -23,7 +61,7 @@ This tool implements a proven 4-step AI learning method:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ai-learning-tutor.git
+git clone https://github.com/ZoeySima/AI-Learning-Tutor.git
 cd ai-learning-tutor
 
 # Install dependencies
