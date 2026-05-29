@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学习中 - AI Learning Tutor</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <style>
+    body { margin: 0; display: flex; flex-direction: column; height: 100vh; }
+    .topbar {
+      height: 56px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      background: var(--bg-elevated);
+    }
+    .topbar h1 { font-size: 18px; flex: 1; }
+    .main { flex: 1; overflow-y: auto; padding: 24px; }
+    .chat-flow { max-width: 720px; margin: 0 auto; }
+    .message {
+      margin-bottom: 32px;
+      padding: 16px;
+      border-radius: var(--radius-md);
+    }
+    .message.ai {
+      background: var(--bg-subtle);
+    }
+    .message.user {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      margin-left: 80px;
+    }
+    .loading {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1 id="topicTitle">加载中...</h1>
+    <button onclick="window.location.href='/'">返回首页</button>
+  </div>
+
+  <div class="main">
+    <div class="chat-flow" id="chatFlow"></div>
+  </div>
+
+  <script src="/static/js/learn.js"></script>
+</body>
+</html>

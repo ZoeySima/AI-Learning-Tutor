@@ -71,13 +71,14 @@ class MapPhase:
         self._display_map(session.map)
         return session
 
-    def _run_diagnostic_pretest(self, session: Session) -> str:
-        """Run diagnostic pretest to assess prior knowledge.
+    def generate_pretest_questions(self, session: Session) -> list[dict]:
+        """Generate diagnostic pretest questions (no IO).
+
+        Pure function suitable for both CLI and Web use.
 
         Returns:
-            Summary of pretest results for MAP_PROMPT
+            List of {"id": str, "question": str, "purpose": str}
         """
-        # Generate pretest questions
         prompt = DIAGNOSTIC_PRETEST_PROMPT.format(
             topic=session.topic,
             user_context=session.user_context,
@@ -88,16 +89,60 @@ class MapPhase:
             temperature=0.7,
         )
 
-        # Parse questions
         json_match = re.search(r"\[.*\]", response, re.DOTALL)
         if not json_match:
-            console.print("[yellow]⚠️  前测生成失败，跳过此步骤[/yellow]")
+            return []
+
+        return json.loads(json_match.group(0))
+
+    def analyze_pretest_results(
+        self,
+        session: Session,
+        results: list[dict],
+    ) -> str:
+        """Analyze pretest answers (no IO).
+
+        Args:
+            session: Learning session
+            results: List of {"question": str, "answer": str, "purpose": str}
+
+        Returns:
+            Short analysis summary for MAP_PROMPT
+        """
+        if not results:
             return ""
 
-        questions = json.loads(json_match.group(0))
+        analysis_prompt = f"""
+用户想学「{session.topic}」，我们做了诊断性前测，结果如下：
 
-        # Ask user
+{chr(10).join(f"Q: {r['question']}{chr(10)}A: {r['answer']}{chr(10)}目的: {r['purpose']}" for r in results)}
+
+请分析：
+1. 用户的先备知识水平如何？（强/中/弱）
+2. 哪些基础概念需要补充？
+3. 学习地图应该如何调整深度？
+
+输出简短总结（2-3句话），供生成学习地图时参考。
+"""
+
+        analysis = self.llm.chat(
+            messages=[{"role": "user", "content": analysis_prompt}],
+            temperature=0.5,
+        )
+
+        return f"前测结果：{analysis}"
+
+    def _run_diagnostic_pretest(self, session: Session) -> str:
+        """CLI-only: run diagnostic pretest with interactive prompts.
+
+        For web use, call generate_pretest_questions + analyze_pretest_results separately.
+        """
         from rich.prompt import Prompt
+
+        questions = self.generate_pretest_questions(session)
+        if not questions:
+            console.print("[yellow]⚠️  前测生成失败，跳过此步骤[/yellow]")
+            return ""
 
         results = []
         for i, q in enumerate(questions, 1):
@@ -112,24 +157,11 @@ class MapPhase:
                 "purpose": q["purpose"],
             })
 
-        # Analyze results
-        analysis_prompt = f"""
-用户想学「{session.topic}」，我们做了诊断性前测，结果如下：
+        analysis = self.analyze_pretest_results(session, results)
+        if analysis:
+            console.print(f"\n[dim]📊 {analysis}[/dim]")
 
-{chr(10).join(f"Q: {r['question']}\nA: {r['answer']}\n目的: {r['purpose']}" for r in results)}
-
-请分析：
-1. 用户的先备知识水平如何？（强/中/弱）
-2. 哪些基础概念需要补充？
-3. 学习地图应该如何调整深度？
-
-输出简短总结（2-3句话），供生成学习地图时参考。
-"""
-
-        analysis = self.llm.chat(
-            messages=[{"role": "user", "content": analysis_prompt}],
-            temperature=0.5,
-        )
+        return analysis
 
         console.print(f"\n[dim]📊 前测分析：{analysis}[/dim]")
 
@@ -400,6 +432,119 @@ class LearnPhase:
 
         console.print("━" * 60)
 
+    def teach_chapter_stream(self, session: Session, chapter_id: int):
+        """Streaming version: yields content chunks for web SSE.
+
+        Yields:
+            dict events:
+              {"type": "review_card", "chapter_id": int, "question": str}
+              {"type": "chunk", "text": str}
+              {"type": "fact_check", "verified": bool, "issues": list}
+              {"type": "done", "chapter": dict}
+              {"type": "error", "message": str}
+        """
+        if not session.map or chapter_id > len(session.map.chapters):
+            yield {"type": "error", "message": f"Invalid chapter ID: {chapter_id}"}
+            return
+
+        chapter = session.map.chapters[chapter_id - 1]
+        chapter.status = "in_progress"
+        session.current_chapter_id = chapter_id
+        self.session_manager.save(session)
+
+        # Build prompt
+        previous_chapters = "\n".join(
+            f"{ch.id}. {ch.title}" for ch in session.map.chapters[:chapter_id - 1]
+        )
+        prompt = LEARN_PROMPT.format(
+            chapter_title=chapter.title,
+            user_context=session.user_context,
+            previous_chapters=previous_chapters or "无",
+        )
+
+        # Stream chunks
+        full_response = []
+        try:
+            for chunk in self.llm.chat(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=6000,
+                stream=True,
+            ):
+                full_response.append(chunk)
+                yield {"type": "chunk", "text": chunk}
+        except Exception as e:
+            yield {"type": "error", "message": str(e)}
+            return
+
+        response_text = "".join(full_response)
+
+        # Fact-check (non-streaming, after all chunks done)
+        verification = self.llm.verify_facts(response_text, session.topic)
+        if verification["is_critical"]:
+            yield {
+                "type": "fact_check",
+                "verified": verification["verified"],
+                "issues": verification.get("issues", []),
+                "disclaimer": verification.get("disclaimer_text"),
+            }
+
+        # Parse and save
+        chapter.content = self._parse_chapter_content(response_text)
+        self.session_manager.save(session)
+
+        yield {
+            "type": "done",
+            "chapter": chapter.model_dump(),
+        }
+
+    def generate_review_flashcard(
+        self,
+        session: Session,
+        review_chapter_id: int,
+    ) -> dict:
+        """Generate a single review flashcard for spiral review (no IO).
+
+        Returns:
+            {"question": str, "chapter_id": int, "chapter_title": str}
+        """
+        if review_chapter_id < 1 or review_chapter_id > len(session.map.chapters):
+            return None
+
+        review_chapter = session.map.chapters[review_chapter_id - 1]
+        if not review_chapter.content:
+            return None
+
+        flashcard_prompt = f"""
+章节：{review_chapter.title}
+内容摘要：
+- 用户视角：{review_chapter.content.user_perspective[:150]}...
+- 业务方视角：{review_chapter.content.business_perspective[:150]}...
+
+生成一道简短的回顾题（不要太难，目的是唤醒记忆）。
+直接输出题目，不要其他文字。
+"""
+        question = self.llm.chat(
+            messages=[{"role": "user", "content": flashcard_prompt}],
+            temperature=0.7,
+            max_tokens=200,
+        )
+
+        return {
+            "question": question.strip(),
+            "chapter_id": review_chapter_id,
+            "chapter_title": review_chapter.title,
+        }
+
+    def get_review_chapter_ids(self, current_chapter_id: int) -> list[int]:
+        """Determine which previous chapters to review (spaced repetition)."""
+        ids = []
+        if current_chapter_id > 1:
+            ids.append(current_chapter_id - 1)
+        if current_chapter_id > 3:
+            ids.append(current_chapter_id - 3)
+        return ids
+
 
 class QuizPhase:
     """Generate and evaluate quiz questions."""
@@ -507,7 +652,6 @@ class QuizPhase:
         self.session_manager.save(session)
 
         return eval_data
-        )
 
     def _parse_evaluation(self, response: str) -> dict:
         """Parse evaluation result from JSON response."""

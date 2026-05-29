@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Learning Tutor</title>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <style>
+    .container {
+      max-width: 600px;
+      margin: 80px auto;
+      padding: 0 24px;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+    .form-group {
+      margin-bottom: 24px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-soft);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AI Learning Tutor</h1>
+    <p style="color: var(--text-soft); margin-bottom: 48px;">
+      用 AI 重新定义学习 — 个性化、结构化、可验证
+    </p>
+
+    <form id="createForm">
+      <div class="form-group">
+        <label for="topic">想学什么？</label>
+        <input type="text" id="topic" placeholder="例如：Python 装饰器、区块链技术、行为心理学" required>
+      </div>
+
+      <div class="form-group">
+        <label for="context">你的背景？</label>
+        <textarea id="context" rows="3" placeholder="例如：零基础、有 Java 经验、产品经理想了解技术原理" required></textarea>
+      </div>
+
+      <button type="submit" class="primary">开始学习</button>
+    </form>
+
+    <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border);">
+      <a href="/sessions" style="color: var(--text-soft); text-decoration: none;">查看已有会话 →</a>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('createForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const topic = document.getElementById('topic').value.trim();
+      const context = document.getElementById('context').value.trim();
+
+      if (!topic || !context) return;
+
+      try {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, user_context: context }),
+        });
+
+        if (!res.ok) throw new Error('Failed to create session');
+
+        const session = await res.json();
+        window.location.href = `/learn?sid=${session.session_id}`;
+      } catch (err) {
+        alert('创建会话失败：' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

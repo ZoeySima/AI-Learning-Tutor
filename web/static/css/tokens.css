@@ -1,0 +1,134 @@
+/* Design tokens - Minimalist reading style */
+:root {
+  /* Colors */
+  --bg: #FAFAF9;
+  --bg-subtle: #F4F4F2;
+  --bg-elevated: #FFFFFF;
+  --text: #1A1A1A;
+  --text-soft: #6B6B6B;
+  --text-muted: #A3A3A3;
+  --border: #E5E5E3;
+  --border-strong: #D4D4D2;
+  --accent: #1A1A1A;
+  --error: #B91C1C;
+
+  /* Fonts */
+  --font-serif: 'Source Han Serif SC', 'Noto Serif SC', Georgia, serif;
+  --font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing (8px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --space-5: 32px;
+  --space-6: 48px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Serif for AI-generated content */
+.ai-content {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.8;
+}
+
+.ai-content h2 {
+  font-size: 24px;
+  margin: var(--space-5) 0 var(--space-3);
+}
+
+.ai-content p {
+  margin-bottom: var(--space-3);
+}
+
+.ai-content code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  background: var(--bg-subtle);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.ai-content pre {
+  background: var(--bg-subtle);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  margin: var(--space-3) 0;
+}
+
+.ai-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--space-3) 0;
+}
+
+.ai-content th,
+.ai-content td {
+  border: 1px solid var(--border);
+  padding: var(--space-2);
+  text-align: left;
+}
+
+button {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+button:hover {
+  background: var(--bg-subtle);
+}
+
+button.primary {
+  background: var(--accent);
+  color: var(--bg);
+  border-color: var(--accent);
+}
+
+button.primary:hover {
+  opacity: 0.9;
+}
+
+input, textarea {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text);
+  width: 100%;
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
