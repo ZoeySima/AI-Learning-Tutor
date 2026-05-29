@@ -60,8 +60,15 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def main():
     """Entry point for `python -m web.server` or start scripts."""
     import os
+    import sys
+    import io
     import socket
     import uvicorn
+
+    # Fix Windows GBK encoding for stdout
+    if sys.platform == "win32":
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
     # Find available port (8766+)
     port = int(os.getenv("AI_TUTOR_PORT", "8766"))
@@ -75,10 +82,10 @@ def main():
         except OSError:
             continue
     else:
-        print(f"❌ No available port in range {port}-{port+15}")
+        print(f"[ERROR] No available port in range {port}-{port+15}")
         return
 
-    print(f"🚀 Starting AI Learning Tutor at http://localhost:{port}")
+    print(f"[OK] Starting AI Learning Tutor at http://localhost:{port}")
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
 
 
