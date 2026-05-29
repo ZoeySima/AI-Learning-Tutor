@@ -2,12 +2,84 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>会话列表 - AI Learning Tutor</title>
   <link rel="stylesheet" href="/static/css/tokens.css">
+  <style>
+    .container { max-width: 800px; margin: 48px auto; padding: 0 24px; }
+    h1 { margin-bottom: 32px; }
+    .session-list { list-style: none; }
+    .session-item {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-4);
+      margin-bottom: var(--space-3);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .session-item:hover { border-color: var(--border-strong); }
+    .session-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .session-meta { color: var(--text-soft); font-size: 14px; }
+    .progress-bar {
+      height: 4px;
+      background: var(--bg-subtle);
+      border-radius: 2px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.3s;
+    }
+  </style>
 </head>
-<body style="padding: 48px;">
-  <h1>会话列表</h1>
-  <p style="color: var(--text-soft);">功能开发中...</p>
-  <a href="/">返回首页</a>
+<body>
+  <div class="container">
+    <h1>学习会话</h1>
+    <p style="margin-bottom: 24px;">
+      <a href="/">创建新会话</a>
+    </p>
+    <ul class="session-list" id="sessionList">
+      <li style="color: var(--text-muted);">加载中...</li>
+    </ul>
+  </div>
+
+  <script>
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/sessions');
+        const sessions = await res.json();
+
+        const listEl = document.getElementById('sessionList');
+        if (sessions.length === 0) {
+          listEl.innerHTML = '<li style="color: var(--text-muted);">暂无会话</li>';
+          return;
+        }
+
+        listEl.innerHTML = sessions.map(s => {
+          const progress = s.status === 'completed' ? 100 : 0; // Simplified
+          return `
+            <li class="session-item" onclick="window.location.href='/learn?sid=${s.session_id}'">
+              <div class="session-title">${s.topic}</div>
+              <div class="session-meta">
+                状态：${s.status === 'completed' ? '已完成' : '进行中'} |
+                创建于：${new Date(s.created_at).toLocaleDateString()}
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${progress}%"></div>
+              </div>
+            </li>
+          `;
+        }).join('');
+      } catch (err) {
+        document.getElementById('sessionList').innerHTML =
+          `<li style="color: var(--error);">加载失败：${err.message}</li>`;
+      }
+    }
+
+    loadSessions();
+  </script>
 </body>
 </html>

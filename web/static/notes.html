@@ -2,12 +2,160 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>学习笔记 - AI Learning Tutor</title>
   <link rel="stylesheet" href="/static/css/tokens.css">
+  <style>
+    .container {
+      max-width: 720px;
+      margin: 48px auto;
+      padding: 0 24px;
+      font-family: var(--font-serif);
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+      font-family: var(--font-sans);
+    }
+    .markdown-content {
+      line-height: 1.8;
+    }
+    .markdown-content h1 {
+      font-size: 32px;
+      margin-bottom: 24px;
+    }
+    .markdown-content h2 {
+      font-size: 24px;
+      margin: 32px 0 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .markdown-content h3 {
+      font-size: 20px;
+      margin: 24px 0 12px;
+    }
+    .markdown-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+    .markdown-content th,
+    .markdown-content td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+    }
+    .markdown-content code {
+      font-family: var(--font-mono);
+      background: var(--bg-subtle);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .markdown-content pre {
+      background: var(--bg-subtle);
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .markdown-content blockquote {
+      border-left: 3px solid var(--border-strong);
+      padding-left: 16px;
+      color: var(--text-soft);
+      margin: 16px 0;
+    }
+    @media print {
+      .toolbar { display: none; }
+    }
+  </style>
 </head>
-<body style="padding: 48px;">
-  <h1>学习笔记</h1>
-  <p style="color: var(--text-soft);">功能开发中...</p>
-  <a href="/">返回首页</a>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <a href="/sessions">← 返回</a>
+      <button onclick="downloadMarkdown()" style="float: right;">下载 .md</button>
+      <button onclick="window.print()" style="float: right; margin-right: 8px;">打印</button>
+    </div>
+
+    <div class="markdown-content" id="content">
+      <p style="color: var(--text-muted);">加载中...</p>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('sid');
+
+    if (!sessionId) {
+      document.getElementById('content').innerHTML =
+        '<p style="color: var(--error);">缺少会话 ID</p>';
+    }
+
+    let markdownText = '';
+
+    // Simple markdown to HTML converter
+    function mdToHtml(md) {
+      let html = md;
+      // Headers
+      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+      // Bold/italic
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      // Code
+      html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+      // Code blocks
+      html = html.replace(/```(\w*)\n([\s\S]+?)```/g, '<pre><code>$2</code></pre>');
+      // Blockquote
+      html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+      // Lists
+      html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+      // Tables (basic)
+      html = html.replace(/^\|(.+)\|$/gm, (match, content) => {
+        const cells = content.split('|').map(c => `<td>${c.trim()}</td>`).join('');
+        return `<tr>${cells}</tr>`;
+      });
+      // Wrap consecutive <tr> in <table>
+      html = html.replace(/(<tr>[\s\S]+?<\/tr>(\n<tr>[\s\S]+?<\/tr>)*)/g, '<table>$1</table>');
+      // Paragraphs (split by double newlines)
+      html = html.split('\n\n').map(p => {
+        if (p.trim().match(/^<(h\d|table|pre|blockquote|ul|ol|li)/)) return p;
+        if (p.trim()) return `<p>${p}</p>`;
+        return '';
+      }).join('\n');
+      // Horizontal rule
+      html = html.replace(/^---$/gm, '<hr>');
+      return html;
+    }
+
+    async function loadNotes() {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}/export`);
+        if (!res.ok) throw new Error('Failed to load');
+        markdownText = await res.text();
+        document.getElementById('content').innerHTML = mdToHtml(markdownText);
+      } catch (err) {
+        document.getElementById('content').innerHTML =
+          `<p style="color: var(--error);">加载失败：${err.message}</p>`;
+      }
+    }
+
+    function downloadMarkdown() {
+      const blob = new Blob([markdownText], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${sessionId}-notes.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    if (sessionId) loadNotes();
+  </script>
 </body>
 </html>

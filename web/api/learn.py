@@ -5,10 +5,9 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from web.service import LearningService
+from web.api.sessions import get_service
 
 router = APIRouter(prefix="/api/sessions", tags=["learn"])
-service = LearningService()
 
 
 class MapRequest(BaseModel):
@@ -36,7 +35,7 @@ async def stream_map(session_id: str, req: MapRequest):
 
     def event_stream():
         try:
-            for event in service.stream_map(session_id, req.pretest_analysis or ""):
+            for event in get_service().stream_map(session_id, req.pretest_analysis or ""):
                 yield sse_format(event)
         except FileNotFoundError:
             yield sse_format({"type": "error", "message": "Session not found"})
@@ -60,7 +59,7 @@ async def stream_chapter(session_id: str, chapter_id: int):
 
     def event_stream():
         try:
-            for event in service.stream_chapter(session_id, chapter_id):
+            for event in get_service().stream_chapter(session_id, chapter_id):
                 yield sse_format(event)
         except FileNotFoundError:
             yield sse_format({"type": "error", "message": "Session not found"})
@@ -82,7 +81,7 @@ async def stream_chapter(session_id: str, chapter_id: int):
 async def get_review(session_id: str, chapter_id: int):
     """Get spiral review flashcards before starting a new chapter."""
     try:
-        flashcards = service.get_review_flashcards(session_id, chapter_id)
+        flashcards = get_service().get_review_flashcards(session_id, chapter_id)
         return {"flashcards": flashcards}
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -92,7 +91,7 @@ async def get_review(session_id: str, chapter_id: int):
 async def generate_quiz(session_id: str, chapter_id: int):
     """Generate quiz questions for a chapter."""
     try:
-        questions = service.generate_quiz(session_id, chapter_id)
+        questions = get_service().generate_quiz(session_id, chapter_id)
         return {"questions": questions}
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -104,7 +103,7 @@ async def generate_quiz(session_id: str, chapter_id: int):
 async def submit_answer(session_id: str, chapter_id: int, req: AnswerRequest):
     """Submit an answer to a quiz question."""
     try:
-        result = service.submit_answer(
+        result = get_service().submit_answer(
             session_id, chapter_id, req.question_id, req.answer
         )
         return result
@@ -118,7 +117,7 @@ async def submit_answer(session_id: str, chapter_id: int, req: AnswerRequest):
 async def submit_reasoning(session_id: str, chapter_id: int, req: ReasoningRequest):
     """Submit reasoning path for a correctly-answered question."""
     try:
-        result = service.submit_reasoning(
+        result = get_service().submit_reasoning(
             session_id, chapter_id, req.question_id, req.reasoning
         )
         return result
@@ -130,9 +129,9 @@ async def submit_reasoning(session_id: str, chapter_id: int, req: ReasoningReque
 async def complete_chapter(session_id: str, chapter_id: int):
     """Mark chapter as completed."""
     try:
-        if not service.check_chapter_passed(session_id, chapter_id):
+        if not get_service().check_chapter_passed(session_id, chapter_id):
             raise HTTPException(status_code=400, detail="Chapter not passed yet")
-        session = service.mark_chapter_completed(session_id, chapter_id)
+        session = get_service().mark_chapter_completed(session_id, chapter_id)
         return session.model_dump()
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
